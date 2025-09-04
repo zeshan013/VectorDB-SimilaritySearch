@@ -1,0 +1,176 @@
+openapi: 3.0.0
+info:
+  title: Similarity Search API
+  version: 1.0.0
+  description: >
+    Similarity Search using vector embeddings and pgVector (Cosine distance).
+servers:
+  - url: http://localhost:3000
+
+components:
+  schemas:
+    DataItem:
+      type: object
+      description: A record from the database.
+      properties:
+        id:
+          type: string
+          example: "12345"
+        severity:
+          type: string
+          example: "Low,Medium,High,Critical"
+        title:
+          type: string
+          example: "title of data"
+        description:
+          type: string
+          example: "description of data"
+        iacontrols:
+          type: string
+          example: "None"
+        ruleID:
+          type: string
+          example: "R-0099"
+        fixid:
+          type: string
+          example: "FX-77"
+        fixtext:
+          type: string
+          example: "This is the content used for embedding."
+        checkid:
+          type: string
+          example: "CHK-22"
+        checktext:
+          type: string
+          example: "Example record title"
+
+    SearchResult:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/DataItem'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Field 'q' is required"
+
+paths:
+  /:
+    get:
+      summary: Returns all data
+      responses:
+        '200':
+          description:  List of all data items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DataItem'
+        '400':
+          description:  Bad Request — query parameters missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description:  Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search-id:
+    get:
+      summary: Search a single item by ID-like fields (ruleID, id, checkid, fixid)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "R-0099"
+          description: >
+            The identifier to search by. The server will match against ruleID, id, checkid, or fixid.
+      responses:
+        '200':
+          description:  Matching data item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataItem'
+        '400':
+          description: Missing or invalid query parameter(s)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description:  No item found for the given ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description:  Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search-similar:
+    get:
+      summary: Create vector from input text and perform similarity search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "any text to search"
+          description: The raw text to embed and search with.
+        - name: field
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [title, description, fixtext, checktext, all]
+            example: text
+          description: >
+            The record field to compare against (e.g., 'title', 'description', 'fixtext', 'checktext', or 'all').
+      responses:
+        '200':
+          description:  Similarity search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                    example: "any text to search"
+                  field:
+                    type: string
+                    example: "text"
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+                  count:
+                    type: integer
+                    example: 3
+        '400':
+          description: Missing or invalid query parameter(s)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description:  Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
